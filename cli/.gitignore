@@ -2,3 +2,4 @@
 /out
 /keys
 /store
+.env

@@ -12,6 +12,7 @@ pub struct KeygenCmd;
 
 impl KeygenCmd {
     pub async fn execute(&self) -> Result<(), String> {
+        log::info!("Generating AES keys");
         gen_and_save_keys();
         Ok(())
     }
@@ -49,4 +50,5 @@ fn gen_and_save_keys() {
             .unwrap()
             .as_bytes(),
     );
+    log::info!("Saved Keys to ./keys/");
 }

@@ -1,4 +1,5 @@
 use crate::decrypt::decrypt;
+use crate::lighthouse::upload_file;
 use base64::decode;
 use clap::Parser;
 use lazy_static::lazy_static;
@@ -6,6 +7,7 @@ use rocket::data::ToByteUnit;
 use rocket::fs::NamedFile;
 use rocket::http::ContentType;
 use rocket::{get, post, routes, Data};
+use rocket_cors;
 use rocket_multipart_form_data::{
     MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
@@ -18,16 +20,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tfhe::integer::{RadixCiphertext, ServerKey};
 
-#[derive(Deserialize)]
-struct StorageTask {
-    data: String,
-}
-
-#[derive(Deserialize)]
-struct ComputationTask {
-    number: i32,
-}
-
 #[derive(Serialize)]
 struct PubkeyResult {
     pubkey: String,
@@ -37,14 +29,11 @@ const DEFAULT_KEY_PATH: &str = "/keys";
 
 lazy_static! {
     static ref KEY_PATH: Mutex<String> = Mutex::new(String::new());
-    static ref USER_DATA: Mutex<HashMap<String, UserState>> = Mutex::new(HashMap::new());
+    static ref USER_DATA: Mutex<HashMap<String, Vec<UserState>>> = Mutex::new(HashMap::new());
 }
 
 #[derive(Debug, Clone, Parser)]
 pub struct ZenNodeCmd {
-    #[arg(short, long)]
-    port: usize,
-
     #[arg(short, long, default_value = DEFAULT_KEY_PATH)]
     key_file: PathBuf,
 }
@@ -53,12 +42,16 @@ pub struct ZenNodeCmd {
 struct UserState {
     key: String,
     description: String,
-    files: Vec<String>,
+    file_id: String,
 }
 
 impl ZenNodeCmd {
     pub async fn execute(&self) -> Result<(), String> {
         if !self.key_file.exists() {
+            log::error!(
+                "Key Path Not Found 🧐 Please cross check: Path: {:?}",
+                &self.key_file
+            );
             return Err("Key path not found".to_string());
         }
         let key_path = PathBuf::from(&self.key_file);
@@ -67,10 +60,20 @@ impl ZenNodeCmd {
             *key_path_lock = self.key_file.to_str().unwrap().to_string();
         }
         if key_path.extension().unwrap_or_default() != "pem" {
+            log::error!("Just .pem files allowed!! Use key-gen command to generate one");
             return Err("Invalid key path, should be a .pem file".to_string());
         }
         // Create store directory
         let _ = std::fs::create_dir_all("store/");
+        log::info!(
+            "✨Zen-node✨ Started on http://localhost:8000/ \n You're ready to store and compute"
+        );
+        // ...
+
+        let cors = rocket_cors::CorsOptions::default()
+            .allow_credentials(true)
+            .to_cors()
+            .unwrap();
 
         let _rocket = rocket::build()
             .mount(
@@ -83,6 +86,7 @@ impl ZenNodeCmd {
                     compute_handler
                 ],
             )
+            .attach(cors)
             .launch()
             .await;
         Ok(())
@@ -94,6 +98,7 @@ async fn store_handler(
     content_type: &ContentType,
     data: Data<'_>,
 ) -> Result<String, std::io::Error> {
+    log::info!("🚛 🚛 Data Coming In !!");
     let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
         MultipartFormDataField::file("data").size_limit(u64::from(1000.mebibytes())),
         MultipartFormDataField::file("enc_symm_key").size_limit(u64::from(32.mebibytes())),
@@ -106,7 +111,7 @@ async fn store_handler(
     let multi_form_data = match MultipartFormData::parse(content_type, data, options).await {
         Ok(data) => data,
         Err(err) => {
-            eprintln!("Failed to parse multipart form data: {:?}", err);
+            log::error!("Data Store Failed 😭. Error: {}", err);
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "Failed to parse multipart form data",
@@ -124,60 +129,54 @@ async fn store_handler(
     let filename = &filename[0].text;
     let description = &description[0].text;
 
-    let mut user_state = USER_DATA.lock().unwrap();
+    // Limit the scope of the MutexGuard
+    let mut data_path_final: String = String::new();
+    {
+        let mut user_state = USER_DATA.lock().unwrap();
 
-    // Create the directory for the files
-    let file_path = format!("store/{}/{}", address, filename);
-    let _ = std::fs::create_dir_all(&file_path);
+        // Create the directory for the files
+        let file_path = format!("store/{}/{}", address, filename);
+        let _ = std::fs::create_dir_all(&file_path);
 
-    if let Some(data_file_fields) = data_file {
-        let data_file_field = &data_file_fields[0];
-        let data_file_name = data_file_field.file_name.as_ref().unwrap();
+        if let Some(data_file_fields) = data_file {
+            let data_file_field = &data_file_fields[0];
+            let data_file_name = data_file_field.file_name.as_ref().unwrap();
+            let final_path = format!("{}/{}", file_path, data_file_name);
+            data_path_final = final_path.clone();
+            let mut file = File::create(final_path)?;
+            let mut temp_file = File::open(&data_file_field.path)?;
+            let mut buffer: Vec<u8> = Vec::new();
+            temp_file.read_to_end(&mut buffer)?;
+            file.write_all(&buffer)?;
 
-        let mut file = File::create(format!("{}/{}", file_path, data_file_name))?;
-        let mut temp_file = File::open(&data_file_field.path)?;
-        let mut buffer: Vec<u8> = Vec::new();
-        temp_file.read_to_end(&mut buffer)?;
-        file.write_all(&buffer)?;
-
-        // Update user state with data file
-        let user_entry = user_state.entry(address.clone()).or_insert(UserState {
-            key: String::new(),
-            description: description.clone(),
-            files: Vec::new(),
-        });
-        user_entry.files.push(data_file_name.clone());
-    } else {
-        eprintln!("Data file not found in the form data");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Data file not found",
-        ));
+            // Update user state with data file
+            let user_entry = user_state
+                .entry(address.clone())
+                .or_insert(Vec::<UserState>::new());
+            user_entry.push(UserState {
+                key: String::new(),
+                description: description.clone(),
+                file_id: filename.clone(),
+            });
+        } else {
+            log::error!("Data Store Failed 😭. Error: Data file not found");
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Data file not found",
+            ));
+        }
     }
 
     if let Some(enc_symm_key_file_fields) = enc_symm_key_file {
-        let enc_symm_key_file_field = &enc_symm_key_file_fields[0];
-        let enc_symm_key_file_name = enc_symm_key_file_field.file_name.as_ref().unwrap();
-
-        let mut file = File::create(format!("{}/{}", file_path, enc_symm_key_file_name))?;
-        let mut temp_file = File::open(&enc_symm_key_file_field.path)?;
-        let mut buffer: Vec<u8> = Vec::new();
-        temp_file.read_to_end(&mut buffer)?;
-        file.write_all(&buffer)?;
-
-        // Update user state with enc_symm_key file
-        let user_entry = user_state.entry(address.clone()).or_insert(UserState {
-            key: String::new(),
-            description: description.clone(),
-            files: Vec::new(),
-        });
-        user_entry.files.push(enc_symm_key_file_name.clone());
-        user_entry.key = enc_symm_key_file_name.clone();
+        ()
     } else {
-        println!("Encrypted symmetric key file not found in the form data");
+        log::warn!("Encrypted symmetric key file not found in the form data");
     }
 
-    Ok("Files processed".into())
+    // Make the asynchronous call outside the lock scope
+    let _lh_resp: crate::lighthouse::LighthouseResponse =
+        upload_file(&data_path_final).await.unwrap();
+    Ok(format!("{:?}", _lh_resp))
 }
 
 #[get("/pubkey")]
@@ -256,7 +255,7 @@ async fn compute_handler(
     input: rocket::serde::json::Json<ComputeInput>,
 ) -> Result<String, io::Error> {
     // Paths
-    let data_dir = format!("store/{}/{}", &input.address, &input.filename);
+    let data_dir: String = format!("store/{}/{}", &input.address, &input.filename);
     let mut named_file: NamedFile;
     if input.filename.starts_with("fhe") {
         let mut file = File::open(format!("{}/fhe_enc_data.b64", data_dir))?;
@@ -281,11 +280,7 @@ async fn compute_handler(
         let compute_result: Result<String, _> = match input.compute_type {
             ComputeTypes::Average => {
                 let mut sum: RadixCiphertext =
-                    ServerKey::unchecked_sum_ciphertexts_vec_parallelized(
-                        &server_key,
-                        values.clone(),
-                    )
-                    .unwrap();
+                    ServerKey::sum_ciphertexts_parallelized(&server_key, &values).unwrap();
                 let count = values.len() as u32;
                 let average =
                     ServerKey::scalar_div_assign_parallelized(&server_key, &mut sum, count);

@@ -146,11 +146,10 @@ struct KeyPair {
 }
 impl StoreCmd {
     pub async fn execute(&self) -> Result<(), Box<dyn std::error::Error>> {
+        log::info!("Data Processing, Input Path: {}", &self.input);
         let input_path = PathBuf::from(&self.input);
         let output_path = PathBuf::from(&self.output);
         let input_extension = input_path.extension().unwrap().to_str().unwrap();
-
-        println!("Input File: {:?}", &input_path.file_name().unwrap());
 
         let enc_type = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select Encryption Type")
@@ -168,14 +167,14 @@ impl StoreCmd {
 
                 let selected_header = Select::with_theme(&ColorfulTheme::default())
                     .with_prompt(
-                        "Select Header to Encrypt, Computation can only be performed on these",
+                        "Select Header [Int Values] to Encrypt, Computation can only be performed on these",
                     )
                     .items(&headers)
                     .interact()
                     .unwrap();
                 let selected_column = &headers[selected_header];
                 let column_data = read_csv_column(input_path.to_str().unwrap(), &selected_column)?;
-
+                log::info!("Encrypting data using Fully homomorphic encryption. Hold On Might Take a Minute!!");
                 // generate client and server keys
                 let (client_key, server_key) = gen_keys_radix(PARAM_MESSAGE_2_CARRY_3_KS_PBS, 8);
                 let key_pair = Arc::new(KeyPair {
@@ -224,7 +223,7 @@ impl StoreCmd {
                             let res: bool = client_key.decrypt_bool(&data);
                             format!("{}", res)
                         }
-                        
+
                         _ => ("Invalid Compute type").to_string(),
                     };
                     Ok(output)
@@ -234,7 +233,7 @@ impl StoreCmd {
                     port: 3000,
                     ..Config::debug_default()
                 };
-
+                log::info!("Starting a client-side decrypt server on http://localhost:3000/ ");
                 rocket::custom(&config)
                     .mount("/", routes![process_job])
                     .manage(key_pair)
@@ -242,6 +241,8 @@ impl StoreCmd {
                     .await?;
             }
             1 => {
+                log::info!("Encrypting data using Dual Aes encryption. Hold On Might Take a Minute!!");
+
                 let symmetric_key: [u8; 32] = rand::thread_rng().gen();
                 let iv: [u8; 16] = rand::thread_rng().gen();
                 let encrypted_data = encrypt_file(input_path.clone(), &symmetric_key, &iv);
@@ -285,6 +286,7 @@ impl StoreCmd {
                     .as_str(),
                     &enc_sym_key,
                 );
+                log::info!("Data successfully Processed!!");
             }
             _ => {
                 eprintln!("Invalid Input");
