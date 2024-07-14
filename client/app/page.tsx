@@ -4,7 +4,8 @@ export default function Home() {
   return (
     <main className="flex flex-col items-center p-24">
       <h1 className="text-[120px] font-[500]">DataZen</h1>
-      <p className="text-lg font-normal">
+      <p className="text-lg font-normal text-center">
+        Bringing Compute-to-data<br />
         Monetize computation on data without worrying about Data Leaks !!
       </p>
       <div className="grid grid-flow-col w-screen px-32 mt-[100px] justify-center space-x-[240px]">
