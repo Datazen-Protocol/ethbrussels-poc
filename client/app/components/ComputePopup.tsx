@@ -19,7 +19,7 @@ export default function ComputePopup({
   const [value, setValue] = useState("");
   const [tval, setTval] = useState(0);
   const [chain, setChain] = useState("");
-  const { writeContract } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
   const [complete, setComplete] = useState(false);
   const [output, setOutput] = useState<any>();
 
@@ -46,7 +46,7 @@ export default function ComputePopup({
     switch (chain) {
       case "filecoin":
         console.log(Compute_handler.filecoin);
-        writeContract({
+        await writeContractAsync({
           abi: Compute_handler.abi,
           address: Compute_handler.filecoin as `0x${string}`,
           functionName: "requestCompute",
@@ -56,7 +56,7 @@ export default function ComputePopup({
         break;
       case "arb":
         console.log(Compute_handler.arb);
-        writeContract({
+        await writeContractAsync({
           abi: Compute_handler.abi,
           address: Compute_handler.arb as `0x${string}`,
           functionName: "requestCompute",
@@ -66,7 +66,7 @@ export default function ComputePopup({
         break;
       case "polygonZk":
         console.log(Compute_handler.polygonZk);
-        writeContract({
+        await writeContractAsync({
           abi: Compute_handler.abi,
           address: Compute_handler.polygonZk as `0x${string}`,
           functionName: "requestCompute",

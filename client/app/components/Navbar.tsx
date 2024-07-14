@@ -20,7 +20,7 @@ const Navbar = () => {
       <div className="flex flex-row items-center justify-center space-x-[40px]">
         {" "}
         <div className="flex font-[400]">
-          <Link href={"/"}>Docs</Link>
+          <Link href={"https://abhays-organization-1.gitbook.io/datazen-docs/"} target="_blank">Docs</Link>
         </div>
         {isConnected ? (
           <div className="flex space-x-5 items-center">
