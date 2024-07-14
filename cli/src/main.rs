@@ -3,6 +3,7 @@ mod keygen;
 mod lighthouse;
 mod process;
 mod zen_node;
+mod zk_proof;
 use clap::Parser;
 use env_logger::{Builder, Target};
 use keygen::KeygenCmd;

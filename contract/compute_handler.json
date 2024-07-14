@@ -1,0 +1,119 @@
+{
+    "abi": [{
+            "inputs": [{
+                    "internalType": "address",
+                    "name": "dataProvider",
+                    "type": "address"
+                },
+                {
+                    "internalType": "bytes",
+                    "name": "proof",
+                    "type": "bytes"
+                },
+                {
+                    "internalType": "uint256[]",
+                    "name": "pubSignals",
+                    "type": "uint256[]"
+                }
+            ],
+            "name": "completeCompute",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [{
+                "internalType": "address",
+                "name": "_verifier",
+                "type": "address"
+            }],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+        },
+        {
+            "anonymous": false,
+            "inputs": [{
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "dataProvider",
+                    "type": "address"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "nodeOperatorShare",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "dataProviderShare",
+                    "type": "uint256"
+                }
+            ],
+            "name": "ComputeCompleted",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [{
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "client",
+                    "type": "address"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "ComputeRequested",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [{
+                "indexed": false,
+                "internalType": "bool",
+                "name": "verified",
+                "type": "bool"
+            }],
+            "name": "ProofVerified",
+            "type": "event"
+        },
+        {
+            "inputs": [],
+            "name": "requestCompute",
+            "outputs": [],
+            "stateMutability": "payable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "nodeOperator",
+            "outputs": [{
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "verifier",
+            "outputs": [{
+                "internalType": "contract IPlonkVerifier",
+                "name": "",
+                "type": "address"
+            }],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ],
+    "filecoin": "0x9C2a287096761B27D3F19cCF906194AB2300De09",
+    "arb": "0x89Fb790e8C056e1E51e54370586BB6E0834DBFaF",
+    "polygonZk": ""
+}

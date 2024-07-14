@@ -1,11 +1,13 @@
 use crate::decrypt::decrypt;
 use crate::lighthouse::upload_file;
+use crate::zk_proof::generate_proof;
 use base64::decode;
 use clap::Parser;
 use lazy_static::lazy_static;
 use rocket::data::ToByteUnit;
 use rocket::fs::NamedFile;
 use rocket::http::ContentType;
+use rocket::serde::json::json;
 use rocket::{get, post, routes, Data};
 use rocket_cors;
 use rocket_multipart_form_data::{
@@ -255,8 +257,10 @@ async fn compute_handler(
     input: rocket::serde::json::Json<ComputeInput>,
 ) -> Result<String, io::Error> {
     // Paths
+    let initial_state = 1;
+    let mut steps: Vec<i32> = vec![];
     let data_dir: String = format!("store/{}/{}", &input.address, &input.filename);
-    let mut named_file: NamedFile;
+    steps.push(2);
     if input.filename.starts_with("fhe") {
         let mut file = File::open(format!("{}/fhe_enc_data.b64", data_dir))?;
         let mut data = Vec::new();
@@ -277,6 +281,8 @@ async fn compute_handler(
             values.push(int);
         }
         let mut serial_res: Vec<u8> = Vec::new();
+        steps.push(3);
+        steps.push(4);
         let compute_result: Result<String, _> = match input.compute_type {
             ComputeTypes::Average => {
                 let mut sum: RadixCiphertext =
@@ -292,8 +298,7 @@ async fn compute_handler(
             }
             ComputeTypes::Total => {
                 let sum: RadixCiphertext =
-                    ServerKey::unchecked_sum_ciphertexts_vec_parallelized(&server_key, values)
-                        .unwrap();
+                    ServerKey::sum_ciphertexts_parallelized(&server_key, &values).unwrap();
                 let _ = bincode::serialize_into(&mut serial_res, &sum);
                 let res = get_decoded_res(ComputeTypes::Total, serial_res)
                     .await
@@ -341,21 +346,18 @@ async fn compute_handler(
                 Ok(res)
             }
         };
-
-        println!("{}", compute_result.unwrap());
-        Ok(("Compute Completed !".to_string()))
+        steps.push(5);
+        // send proof to chain, return result, proof and tx hash
+        let proof: String = generate_proof(initial_state, &steps).unwrap();
+        println!("{}", compute_result.as_ref().unwrap());
+        let response_json = json!({
+            "compute_result": compute_result.unwrap(),
+            "proof": proof
+        });
+        Ok(response_json.to_string())
     } else {
         let data_file_path = format!("{}/enc_data.b64", data_dir);
         let enc_symm_key_path = format!("{}/enc_sym_keys.b64", data_dir);
-        let private_key_path = "./keys/key2/private_key2.pem";
-        named_file = decrypt(
-            data_file_path,
-            enc_symm_key_path,
-            private_key_path.to_string(),
-            ".".to_string(),
-        )
-        .await
-        .unwrap();
         Ok(("Compute Done".to_string()))
     }
 }
@@ -365,7 +367,7 @@ async fn get_decoded_res(
     serial_enc_output: Vec<u8>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let output = reqwest::Client::new()
-        .post("http://localhost:3000/process_job")
+        .post("http://localhost:6000/process_job")
         .header("Content-Type", "application/octet-stream")
         .header("compute_type", compute_type.to_string())
         .body(serial_enc_output)

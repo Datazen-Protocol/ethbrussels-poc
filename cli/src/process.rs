@@ -226,14 +226,15 @@ impl StoreCmd {
 
                         _ => ("Invalid Compute type").to_string(),
                     };
+                    println!("{}", output.clone());
                     Ok(output)
                 }
 
                 let config = Config {
-                    port: 3000,
+                    port: 6000,
                     ..Config::debug_default()
                 };
-                log::info!("Starting a client-side decrypt server on http://localhost:3000/ ");
+                log::info!("Starting a client-side decrypt server on http://localhost:6000/ ");
                 rocket::custom(&config)
                     .mount("/", routes![process_job])
                     .manage(key_pair)

@@ -1,0 +1,26 @@
+{
+    "abi": [{
+        "inputs": [{
+                "internalType": "bytes",
+                "name": "proof",
+                "type": "bytes"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "pubSignals",
+                "type": "uint256[]"
+            }
+        ],
+        "name": "verifyProof",
+        "outputs": [{
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+        }],
+        "stateMutability": "view",
+        "type": "function"
+    }],
+    "filecoin": "0x358ad5f10b1ae60484d71d3c8195e8a064650873",
+    "arb": "0x4C5dE3C751013d16ABDEDB4d45197665F0FBbeDD",
+    "polygonZk": "" 
+}

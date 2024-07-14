@@ -32,3 +32,4 @@ tokio = {version = "1.0", features = ["full"]}
 tokio-tungstenite = "0.16"
 uuid = {version = "1.10.0", features = ["v4", "v5"]}
 warp = "0.3"
+wasm-bindgen = "0.2.92"
