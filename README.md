@@ -10,4 +10,4 @@ Welcome to DataZen - where data speaks volumes, but keeps your secrets
 
 ## [Slides](https://www.canva.com/design/DAGK5Y1doHY/JhZRlK1Q20jBd9IPgocM8w/view?utm_content=DAGK5Y1doHY&utm_campaign=designshare&utm_medium=link&utm_source=editor#4)
 ## [Docs](https://abhays-organization-1.gitbook.io/datazen-docs/)
-##Submission Url: https://ethglobal.com/showcase/datazen-u223g
+## Submission Url: https://ethglobal.com/showcase/datazen-u223g
